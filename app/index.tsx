@@ -28,13 +28,19 @@ export default function Inicio() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  const fetchData = async (url: string) => {
+  const fetchAllData = async (url: string) => {
     try {
-      const res = await axios.get(url);
-      const results = res.data.results;
+      let results: any[] = [];
+      let nextUrl: string | null = url;
+
+      while (nextUrl) {
+        const res = await axios.get(nextUrl);
+        results = [...results, ...res.data.results];
+        nextUrl = res.data.next;
+      }
 
       const updatedResults = await Promise.all(
-        results.map(async (item: any) => {
+        results.map(async (item) => {
           const newItem = { ...item };
           for (const key in item) {
             if (item[key]) {
@@ -66,11 +72,17 @@ export default function Inicio() {
         })
       );
 
-      setData(updatedResults);
-      setFilteredData(updatedResults);
+      // Remove os campos "created", "edited" e "url" de cada objeto
+      const cleanedResults = updatedResults.map((item) => {
+        const { created, edited, url, ...rest } = item;
+        return rest;
+      });
 
-      if (results.length > 0) {
-        setHeaders(Object.keys(results[0]));
+      setData(cleanedResults);
+      setFilteredData(cleanedResults);
+
+      if (cleanedResults.length > 0) {
+        setHeaders(Object.keys(cleanedResults[0]));
       }
 
       setError(null); // Clear any previous errors
@@ -81,7 +93,7 @@ export default function Inicio() {
   };
 
   useEffect(() => {
-    fetchData(`https://swapi.dev/api/${object}`);
+    fetchAllData(`https://swapi.dev/api/${object}`);
   }, [object]);
 
   useEffect(() => {
@@ -178,7 +190,10 @@ export default function Inicio() {
             </TableHead>
             <TableBody>
               {filteredData.map((row, rowIndex) => (
-                <TableRow key={rowIndex} sx={{ "&:hover": { backgroundColor: "rgba(75, 75, 75, 0.1)" } }}>
+                <TableRow
+                  key={rowIndex}
+                  sx={{ "&:hover": { backgroundColor: "rgba(75, 75, 75, 0.1)", cursor: "pointer" } }}
+                >
                   {headers.map((header) => (
                     <TableCell key={header} sx={{ whiteSpace: 'normal', wordWrap: 'break-word', color: "#2b5876" }}>
                       {Array.isArray(row[header])
@@ -203,7 +218,7 @@ export default function Inicio() {
               },
               marginX: 2
             }}
-            onClick={() => fetchData(`https://swapi.dev/api/${object}`)}
+            onClick={() => fetchAllData(`https://swapi.dev/api/${object}`)}
           >
             Recarregar
           </Button>
